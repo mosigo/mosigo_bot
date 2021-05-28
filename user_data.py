@@ -177,7 +177,7 @@ class ToRedisJsonSaver(JsonSaver):
         self.redis_db = redis.from_url(redis_url)
 
     def load_from_storage(self):
-        return self.redis_db.get('mosigobot.data')
+        return json.loads(self.redis_db.get('mosigobot.data'))
 
     def save_to_storage(self, json_data):
         self.redis_db.set('mosigobot.data', json.dumps(json_data, ensure_ascii=False))
