@@ -250,10 +250,11 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
 class RedisDataStorage(InMemoryWithFileSavingDataStorage):
 
     def __init__(self, redis_url):
+        self.in_memory_storage = InMemoryUserDataStorage()
         self.redis_db = redis.from_url(redis_url)
-        super().__init__('')
+        self.__load_from_redis()
 
-    def __load_from_storage(self, file_name):
+    def __load_from_redis(self):
         data = self.redis_db.get('mosigobot.data')
         if data:
             self.__from_json(data)
