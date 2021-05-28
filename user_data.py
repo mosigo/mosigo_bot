@@ -1,8 +1,8 @@
-from abc import abstractmethod
-
 import json
 import os
+import redis
 
+from abc import abstractmethod
 from question import Question
 
 
@@ -168,7 +168,9 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
 
     def __init__(self, file_name):
         self.in_memory_storage = InMemoryUserDataStorage()
+        self.__load_from_storage(file_name)
 
+    def __load_from_storage(self, file_name):
         current_dir = os.path.abspath(os.path.dirname(__file__))
         file = os.path.join(current_dir, file_name)
 
@@ -178,7 +180,7 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
                 data = json.load(f)
                 self.__from_json(data)
 
-    def __save_to_file(self):
+    def __save_to_storage(self):
         json_data = self.__to_json()
         with open(self.file_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, ensure_ascii=False, indent=4)
@@ -217,18 +219,18 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
 
     def put_user_current_question(self, user_id, question):
         self.in_memory_storage.put_user_current_question(user_id, question)
-        self.__save_to_file()
+        self.__save_to_storage()
 
     def clear_user_current_question(self, user_id):
         self.in_memory_storage.clear_user_current_question(user_id)
-        self.__save_to_file()
+        self.__save_to_storage()
 
     def get_user_complexity(self, user_id):
         return self.in_memory_storage.get_user_complexity(user_id)
 
     def set_user_complexity(self, user_id, complexity):
         self.in_memory_storage.set_user_complexity(user_id, complexity)
-        self.__save_to_file()
+        self.__save_to_storage()
 
     def get_user_victories_count(self, user_id):
         return self.in_memory_storage.get_user_victories_count(user_id)
@@ -238,11 +240,27 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
 
     def add_user_victory(self, user_id):
         self.in_memory_storage.add_user_victory(user_id)
-        self.__save_to_file()
+        self.__save_to_storage()
 
     def add_user_defeat(self, user_id):
         self.in_memory_storage.add_user_defeat(user_id)
-        self.__save_to_file()
+        self.__save_to_storage()
+
+
+class RedisDataStorage(InMemoryWithFileSavingDataStorage):
+
+    def __init__(self, redis_url):
+        self.redis_db = redis.from_url(redis_url)
+        super().__init__('')
+
+    def __load_from_storage(self, file_name):
+        data = self.redis_db.get('mosigobot.data')
+        if data:
+            self.__from_json(data)
+
+    def __save_to_storage(self):
+        json_data = self.__to_json()
+        self.redis_db.set('mosigobot.data', json.dumps(json_data, ensure_ascii=False))
 
 
 if __name__ == '__main__':

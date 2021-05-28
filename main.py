@@ -1,3 +1,5 @@
+import os
+
 import telebot
 import re
 import logging
@@ -6,7 +8,7 @@ from telebot.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMar
 
 from message_processor import get_unified_user_message, get_chat_id_to_reply, unify_message, is_user_try_answer
 from question import CompositeQuestionStorage, AkentevQuestionStorage, InMemoryQuestionStorage, DEFAULT_QUESTIONS
-from user_data import InMemoryUserDataStorage
+from user_data import InMemoryUserDataStorage, RedisDataStorage, InMemoryWithFileSavingDataStorage
 
 token = '1621053959:AAH0OF1Yh6mLDNZW1DahCbTl1KYN77DP9Iw'
 bot = telebot.TeleBot(token)
@@ -34,7 +36,10 @@ question_storage = CompositeQuestionStorage(
 )
 
 # хранилище состояния для каждого пользователя
-user_data_storage = InMemoryUserDataStorage()
+user_data_storage = InMemoryWithFileSavingDataStorage('storage.json')
+redis_url = os.environ.get('REDIS_URL')
+if redis_url is not None:
+    user_data_storage = RedisDataStorage(redis_url)
 
 
 def send_message_about_internal_exception(bot, user_id, e):
