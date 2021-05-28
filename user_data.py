@@ -142,19 +142,41 @@ class InMemoryUserDataStorage(UserDataStorage):
 
 
 class JsonSaver:
+    """
+    Абстракция для сохранения состояния бота, которое представлено в виде Json,
+    и восстановления этого состояния обратно.
+    """
 
     @abstractmethod
     def load_from_storage(self):
+        """
+        Функция для загрузки состояния.
+
+        :return: сохранённое ранее состояние в виде json (map)
+        """
         pass
 
     @abstractmethod
     def save_to_storage(self, json_data):
+        """
+        Функция для сохранения состояния.
+
+        :param json_data: состояние бота, представленное в виде json (map)
+        """
         pass
 
 
 class ToFileJsonSaver(JsonSaver):
+    """
+    Реализация JsonSaver, которая сохраняет состояние в файл на диске.
+    """
 
     def __init__(self, file_name):
+        """
+        В конструктор принимает имя файла относительно текущей директории, из которой запускается бот.
+
+        :param file_name: название файла (str)
+        """
         current_dir = os.path.abspath(os.path.dirname(__file__))
         file = os.path.join(current_dir, file_name)
         self.file_name = file
@@ -171,8 +193,16 @@ class ToFileJsonSaver(JsonSaver):
 
 
 class ToRedisJsonSaver(JsonSaver):
+    """
+    Реализация JsonSaver, которая сохраняет состояние в Redis.
+    """
 
     def __init__(self, redis_url):
+        """
+        В конструктор принимает URL для коннекта в Redis.
+
+        :param redis_url: URL для коннекта в Redis (str)
+        """
         self.in_memory_storage = InMemoryUserDataStorage()
         self.redis_db = redis.from_url(redis_url)
 
@@ -184,6 +214,12 @@ class ToRedisJsonSaver(JsonSaver):
 
 
 class JsonDataStorage(UserDataStorage):
+    """
+    Реализация UserDataStorage, которая хранит состояние бота в памяти
+    (делегируя всю работу объекту InMemoryUserDataStorage), и добавляет логику сохранения состояния
+    во всех методах, которые это состояние модифицируют. Нуждается в конкретном объекте JsonSaver,
+    с помощью которого будет сохранять состояние и восстанавливать его при инициализации.
+    """
 
     @staticmethod
     def __question_to_json(question):
@@ -209,6 +245,10 @@ class JsonDataStorage(UserDataStorage):
         return result
 
     def __init__(self, saver):
+        """
+        Принимает на вход конкретный объект JsonSaver, чтобы с его помощью сохранять состояние и восстанавливать обратно.
+        :param saver: сохранятор состояния (JsonSaver)
+        """
         self.in_memory_storage = InMemoryUserDataStorage()
         self.saver = saver
         self.__load_from_storage()

@@ -14,9 +14,11 @@ token = '1621053959:AAH0OF1Yh6mLDNZW1DahCbTl1KYN77DP9Iw'
 
 bot = telebot.TeleBot(token)
 
+# добавляем логирование уровня DEBUG от telebot
 telebot.logger.setLevel(logging.DEBUG)
 
 # регулярное выражение для команды от пользователя на изменение сложности
+# вот как раз сложность "причесать" во что-то приличное пока не успела :(
 complexity_reg_exp = r'^сложность ([123])$'
 
 # стартовое сообщение, которое выводит бот, если его спрашивают про правила или если он не понял, что от него хотят
@@ -36,11 +38,13 @@ question_storage = CompositeQuestionStorage(
     ]
 )
 
-# хранилище состояния для каждого пользователя
+# по умолчанию храним состояние в файле storage.json в текущей директории
 json_saver = ToFileJsonSaver('storage.json')
 redis_url = os.environ.get('REDIS_URL')
+# если переменная окружения REDIS_URL была задана, то будем хранить состояние в Redis
 if redis_url is not None:
     json_saver = ToRedisJsonSaver(redis_url)
+# итоговый объект для сохранения состояния по каждому пользователю
 user_data_storage = JsonDataStorage(json_saver)
 
 
