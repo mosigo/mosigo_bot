@@ -141,7 +141,49 @@ class InMemoryUserDataStorage(UserDataStorage):
         self.user_defeats[user_id] = self.get_user_defeats_count(user_id) + 1
 
 
-class InMemoryWithFileSavingDataStorage(UserDataStorage):
+class JsonSaver:
+
+    @abstractmethod
+    def load_from_storage(self):
+        pass
+
+    @abstractmethod
+    def save_to_storage(self, json_data):
+        pass
+
+
+class ToFileJsonSaver(JsonSaver):
+
+    def __init__(self, file_name):
+        current_dir = os.path.abspath(os.path.dirname(__file__))
+        file = os.path.join(current_dir, file_name)
+        self.file_name = file
+
+    def load_from_storage(self):
+        if os.path.isfile(self.file_name):
+            with open(self.file_name, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return None
+
+    def save_to_storage(self, json_data):
+        with open(self.file_name, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, ensure_ascii=False, indent=4)
+
+
+class ToRedisJsonSaver(JsonSaver):
+
+    def __init__(self, redis_url):
+        self.in_memory_storage = InMemoryUserDataStorage()
+        self.redis_db = redis.from_url(redis_url)
+
+    def load_from_storage(self):
+        return self.redis_db.get('mosigobot.data')
+
+    def save_to_storage(self, json_data):
+        self.redis_db.set('mosigobot.data', json.dumps(json_data, ensure_ascii=False))
+
+
+class JsonDataStorage(UserDataStorage):
 
     @staticmethod
     def __question_to_json(question):
@@ -166,24 +208,19 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
             result[key_function(k)] = value_function(v)
         return result
 
-    def __init__(self, file_name):
+    def __init__(self, saver):
         self.in_memory_storage = InMemoryUserDataStorage()
-        self.__load_from_storage(file_name)
+        self.saver = saver
+        self.__load_from_storage()
 
-    def __load_from_storage(self, file_name):
-        current_dir = os.path.abspath(os.path.dirname(__file__))
-        file = os.path.join(current_dir, file_name)
-
-        self.file_path = file
-        if os.path.isfile(file):
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                self.__from_json(data)
+    def __load_from_storage(self):
+        data = self.saver.load_from_storage()
+        if data:
+            self.__from_json(data)
 
     def __save_to_storage(self):
         json_data = self.__to_json()
-        with open(self.file_path, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, ensure_ascii=False, indent=4)
+        self.saver.save_to_storage(json_data)
 
     def __to_json(self):
         return {
@@ -245,29 +282,3 @@ class InMemoryWithFileSavingDataStorage(UserDataStorage):
     def add_user_defeat(self, user_id):
         self.in_memory_storage.add_user_defeat(user_id)
         self.__save_to_storage()
-
-
-class RedisDataStorage(InMemoryWithFileSavingDataStorage):
-
-    def __init__(self, redis_url):
-        self.in_memory_storage = InMemoryUserDataStorage()
-        self.redis_db = redis.from_url(redis_url)
-        self.__load_from_redis()
-
-    def __load_from_redis(self):
-        data = self.redis_db.get('mosigobot.data')
-        if data:
-            self.__from_json(data)
-
-    def __save_to_storage(self):
-        json_data = self.__to_json()
-        self.redis_db.set('mosigobot.data', json.dumps(json_data, ensure_ascii=False))
-
-
-if __name__ == '__main__':
-    ds = InMemoryWithFileSavingDataStorage('storage.json')
-    ds.add_user_victory(11122333)
-    ds.add_user_defeat(11122333)
-    ds.set_user_complexity(11122333, '2')
-    ds.put_user_current_question(11122333, Question('Какую площадь имеет клетка стандартной школьной тетрадки:',
-                                                    ['0,25', '1,00', '0,5', '1,25'], '0,25'))
